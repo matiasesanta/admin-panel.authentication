@@ -20,11 +20,18 @@ angular.module('adminPanel.authentication', [
                         $location.path('/');
                     }
                 }
-                
+
+                function sendUserData() {
+                    angular.element(document).ready(function () {
+                        scope.$broadcast('userData', scope.user);
+                    });
+                }
+
                 chekIfUserLogged();
-                
+
                 scope.$on('$routeChangeStart', function() {
                     chekIfUserLogged();
+                    sendUserData();
                 });
             },
             templateUrl: 'directive/user.template.html'
@@ -121,7 +128,7 @@ angular.module('adminPanel.authentication').component('login', {
             throw 'The path must be a String.';
         }
         apiPath = path;
-        
+
         return this;
     };
     this.excludePaths = function(paths) {
@@ -129,7 +136,7 @@ angular.module('adminPanel.authentication').component('login', {
             throw 'The paths must be an Array of Regex';
         }
         excludePaths = paths;
-        
+
         return this;
     };
     this.setMaxSessionTime = function(time) {
@@ -137,15 +144,15 @@ angular.module('adminPanel.authentication').component('login', {
             throw 'The time must be numeric';
         }
         maxSessionTime = time;
-        
+
         return this;
     };
     this.enableDebugMode = function () {
         debugMode = true;
-        
+
         return this;
     };
-    
+
 
     this.$get = [
         '$http', 'UserService', 'FirewallService',
@@ -159,27 +166,26 @@ angular.module('adminPanel.authentication').component('login', {
             } else {
                 Firewall.setExcludePaths(excludePaths);
             }
-            
+
             return {
                 login: Login,
                 logout: Logout,
                 checkLogin: checkLogin
             };
-            
+
             function checkLogin() {
                 if(User.isLogged()) {
                     $http.defaults.headers.common.Authorization = 'Bearer ' + User.getToken();
-                    return true;
+                    return User.getUserData();
                 }
-                return false;
+                return null;
             }
-            
+
             function Login(username, password, callback) {
                 var promise = $http.post(apiPath + '/login', { _username: username, _password: password });
                 promise.then(function (response) {
                     if (response.data && response.data.token) {
                         User.login({
-                            username: username, 
                             token: response.data.token,
                             maxSessionTime: maxSessionTime,
                             excludePaths: excludePaths
@@ -230,70 +236,166 @@ angular.module('adminPanel.authentication').component('login', {
         };
     }
 ]);
+;angular.module('adminPanel.authentication').service('TokenParserService', [
+    function() {
+
+        this.parseJwt = function(token) {
+            try {
+                var base64Url = token.split('.')[1];
+                var base64 = base64Url.replace('-', '+').replace('_', '/');
+                var data = JSON.parse(window.atob(base64));
+                if (!data.username) {
+                    throw 'The token does not contain username in payload';
+                }
+                if (!data.exp) {
+                    throw 'The token does not contain exp in payload';
+                }
+                if (!data.iat) {
+                    throw 'The token does not contain iat in payload';
+                }
+                return data;
+            } catch(err) {
+                console.error(err);
+                throw 'Token decoding error';
+            }
+        };
+    }
+]);
+;angular.module('adminPanel.authentication').factory('UserFactory', function() {
+        return {
+            data: null,
+
+            setData: function(value) {
+                this.data = {
+                    username: value.username || '',
+                    roles: value.roles || null
+                };
+            },
+
+            getData: function() {
+                return this.data;
+            },
+
+            deleteData: function() {
+                this.data = null;
+            }
+        };
+    }
+);
 ;angular.module('adminPanel.authentication').service('UserService', [
-    '$localStorage', function($localStorage) {
+    '$localStorage', 'UserFactory', 'TokenParserService',
+    function($localStorage, UserFactory, TokenParserService) {
         var logged = false;
         this.login = login;
+        this.initData = initData;
         this.logout = logout;
+        this.getUserData = getUserData;
         this.getUsername = getUsername;
+        this.getRoles = getRoles;
         this.isLogged = isLogged;
         this.setLogged = setLogged;
         this.getToken = getToken;
         this.setToken = setToken;
         this.isGranted = isGranted;
-        
-        function login (object) {
-            object.timestamp = new Date().getTime();
-            $localStorage.currentUser = object;
-        }
-        
-        function logout() {
-            delete $localStorage.currentUser;
-        }
-        
 
+        function login (object) {
+
+            var jwtPayload = TokenParserService.parseJwt(object.token);
+
+            UserFactory.setData({
+                username: jwtPayload.username,
+                roles: jwtPayload.roles
+            });
+
+            var serverExpirationTime = new Date(jwtPayload.exp * 1000);
+            var clientExpirationTime = new Date((jwtPayload.iat + object.maxSessionTime) * 1000);
+            $localStorage.session = {
+                access_token: object.token,
+                exp: Math.min(clientExpirationTime, serverExpirationTime),
+                excludePaths: object.excludePaths
+            };
+        }
+
+        function initData() {
+            var token = this.getToken();
+            if (!token) {
+                return null;
+            }
+            var jwtPayload = TokenParserService.parseJwt(token);
+            var data = {
+                username: jwtPayload.username,
+                roles: jwtPayload.roles
+            };
+            UserFactory.setData(data);
+            return data;
+        }
+
+        function logout() {
+            if ($localStorage.session) {
+                delete $localStorage.session;
+            }
+            UserFactory.deleteData();
+        }
+
+        function getUserData() {
+            var data = UserFactory.getData();
+            if (!data) {
+                data = this.initData();
+            }
+            return data;
+        }
 
         function getUsername() {
-            if($localStorage.currentUser) {
-                return $localStorage.currentUser.username;
+            var data = this.getUserData();
+            if (!data) {
+                return null;
             }
-            return '';
+            return data.username;
         }
-        
+
+        function getRoles() {
+            var data = this.getUserData();
+            if (!data) {
+                return null;
+            }
+            return data.roles;
+        }
+
         function setLogged(val) {
             logged = val;
         }
-        
+
         function isLogged() {
             if(logged === true) return true;
+
             var now = new Date().getTime();
-            if($localStorage.currentUser && 
-                    now - $localStorage.currentUser.timestamp < $localStorage.currentUser.maxSessionTime * 1000) {
+            if($localStorage.session && now < $localStorage.session.exp) {
                 return true;
             }
+
             logout();
             return false;
         }
-        
+
         function getToken() {
-            if($localStorage.currentUser) {
-                return $localStorage.currentUser.token;
+            if($localStorage.session) {
+                return $localStorage.session.access_token;
             }
             return '';
         }
-        
+
         function setToken(token) {
-            if(!$localStorage.currentUser) {
+            if(!$localStorage.session) {
                 return false;
             }
-            $localStorage.currentUser.token = token;
-            
+            $localStorage.session.access_token = token;
+
             return true;
         }
-        
+
         function isGranted(role) {
-            if($localStorage.currentUser && $localStorage.currentUser.roles) {
-                return $localStorage.currentUser.roles.indexOf(role) !== -1;
+            if($localStorage.session && $localStorage.session.roles) {
+                return $localStorage.session.roles.indexOf(role) !== -1;
             }
             return false;
         }

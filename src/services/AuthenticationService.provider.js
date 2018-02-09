@@ -9,7 +9,7 @@ angular.module('adminPanel.authentication').provider('AuthenticationService', fu
             throw 'The path must be a String.';
         }
         apiPath = path;
-        
+
         return this;
     };
     this.excludePaths = function(paths) {
@@ -17,7 +17,7 @@ angular.module('adminPanel.authentication').provider('AuthenticationService', fu
             throw 'The paths must be an Array of Regex';
         }
         excludePaths = paths;
-        
+
         return this;
     };
     this.setMaxSessionTime = function(time) {
@@ -25,15 +25,15 @@ angular.module('adminPanel.authentication').provider('AuthenticationService', fu
             throw 'The time must be numeric';
         }
         maxSessionTime = time;
-        
+
         return this;
     };
     this.enableDebugMode = function () {
         debugMode = true;
-        
+
         return this;
     };
-    
+
 
     this.$get = [
         '$http', 'UserService', 'FirewallService',
@@ -47,27 +47,26 @@ angular.module('adminPanel.authentication').provider('AuthenticationService', fu
             } else {
                 Firewall.setExcludePaths(excludePaths);
             }
-            
+
             return {
                 login: Login,
                 logout: Logout,
                 checkLogin: checkLogin
             };
-            
+
             function checkLogin() {
                 if(User.isLogged()) {
                     $http.defaults.headers.common.Authorization = 'Bearer ' + User.getToken();
-                    return true;
+                    return User.getUserData();
                 }
-                return false;
+                return null;
             }
-            
+
             function Login(username, password, callback) {
                 var promise = $http.post(apiPath + '/login', { _username: username, _password: password });
                 promise.then(function (response) {
                     if (response.data && response.data.token) {
                         User.login({
-                            username: username, 
                             token: response.data.token,
                             maxSessionTime: maxSessionTime,
                             excludePaths: excludePaths

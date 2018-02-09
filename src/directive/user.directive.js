@@ -10,11 +10,18 @@ angular.module('adminPanel.authentication').directive('apUser',[
                         $location.path('/');
                     }
                 }
-                
+
+                function sendUserData() {
+                    angular.element(document).ready(function () {
+                        scope.$broadcast('userData', scope.user);
+                    });
+                }
+
                 chekIfUserLogged();
-                
+
                 scope.$on('$routeChangeStart', function() {
                     chekIfUserLogged();
+                    sendUserData();
                 });
             },
             templateUrl: 'directive/user.template.html'
