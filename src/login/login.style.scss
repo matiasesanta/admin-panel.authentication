@@ -1,16 +1,3 @@
-.container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
+.login-container {
     height: 100%;
-    width: 100%;
-    
-    .login-form {
-        flex: none;
-        z-index: 1;
-        max-width: 400px;
-        margin: 0 auto 100px;
-        box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.2), 0 5px 5px 0 rgba(0, 0, 0, 0.24);
-    }
 }

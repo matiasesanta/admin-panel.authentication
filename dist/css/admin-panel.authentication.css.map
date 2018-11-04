@@ -1,6 +1,6 @@
 {
 "version": 3,
-"mappings": "AAAA,UAAW;EACP,OAAO,EAAE,IAAI;EACb,WAAW,EAAE,MAAM;EACnB,eAAe,EAAE,MAAM;EACvB,QAAQ,EAAE,QAAQ;EAClB,MAAM,EAAE,IAAI;EACZ,KAAK,EAAE,IAAI;;AAEX,sBAAY;EACR,IAAI,EAAE,IAAI;EACV,OAAO,EAAE,CAAC;EACV,SAAS,EAAE,KAAK;EAChB,MAAM,EAAE,YAAY;EACpB,UAAU,EAAE,8DAA8D",
+"mappings": "AAAA,gBAAiB;EACb,MAAM,EAAE,IAAI",
 "sources": ["../../src/login/login.style.scss"],
 "names": [],
 "file": "admin-panel.authentication.css"
