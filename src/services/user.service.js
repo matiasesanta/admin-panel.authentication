@@ -18,13 +18,11 @@ angular.module('adminPanel.authentication').service('UserService', [
 
             var jwtPayload = TokenParserService.parseJwt(object.token);
 
-            UserFactory.setData({
-                username: jwtPayload.username,
-                roles: jwtPayload.roles
-            });
-
             var serverExpirationTime = new Date(jwtPayload.exp * 1000);
             var clientExpirationTime = new Date((jwtPayload.iat + object.maxSessionTime) * 1000);
+            
+            UserFactory.setData(jwtPayload);
+
             $localStorage.session = {
                 access_token: object.token,
                 exp: Math.min(clientExpirationTime, serverExpirationTime),
@@ -38,12 +36,9 @@ angular.module('adminPanel.authentication').service('UserService', [
                 return null;
             }
             var jwtPayload = TokenParserService.parseJwt(token);
-            var data = {
-                username: jwtPayload.username,
-                roles: jwtPayload.roles
-            };
-            UserFactory.setData(data);
-            return data;
+            
+            UserFactory.setData(jwtPayload);
+            return jwtPayload;
         }
 
         function logout() {
